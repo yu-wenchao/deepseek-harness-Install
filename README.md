@@ -1,7 +1,7 @@
 
 <img width="2560" height="1280" alt="deepseek-harness" src="https://github.com/user-attachments/assets/904062ea-a929-4915-a7e9-af5d408d0e39" />
 
-# DeepSeek Harness desktop 一键安装器（桌面版客户端）使用说明
+# DeepSeek Harness desktop 一键安装器（桌面版客户端+插件市场+多模态视觉）使用说明
 deepseek harness桌面客户端(含插件市场和多模态视觉) 一键安装包，双击DeepSeekHarnessSetup-desktop.exe就可以一键安装，适合小白！
 
 安装包下载地址：https://github.com/yu-wenchao/deepseek-harness-desktop-Install/releases/download/v.30/DeepSeekHarnessSetup-desktop-3.0.exe
