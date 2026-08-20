@@ -48,7 +48,7 @@ DeepSeek Harness（DeepSeek 智能体生产环境）支持一键安装：`DeepSe
 
 ### 2.1 双击运行
 
-双击 `DeepSeekHarnessSetup-desktop.exe`，打开安装器窗口：
+双击 `DeepSeekHarnessSetup-desktop-3.0.exe`，打开安装器窗口：
 
 ![安装器界面：安装目录 / 源码地址 / 模型网关 / 开始安装]
 
@@ -86,7 +86,7 @@ DeepSeek Harness（DeepSeek 智能体生产环境）支持一键安装：`DeepSe
 三种方式任选其一：
 
 1. **桌面快捷方式** —— 双击桌面上的 **"DeepSeek Harness"** 图标（推荐）；
-2. **安装目录** —— 双击 `<安装目录>\DeepSeekHarness.exe`；
+2. **安装目录** —— 双击 `<安装目录>\DeepSeekHarnessSetup-desktop-3.0.exe`；
 3. **start.bat** —— 双击安装目录下的 `start.bat`（同为桌面模式快捷入口）。
 
 启动后自动拉起模型网关服务，并在**内嵌窗口**中显示工作台界面（地址为 `http://127.0.0.1:3080`，无需手动打开浏览器）。
@@ -129,7 +129,7 @@ llm-pi-ai:
 
 | 路径 | 作用 |
 |---|---|
-| `<安装目录>\DeepSeekHarness.exe` | 桌面客户端（入口程序） |
+| `<安装目录>\DeepSeekHarnessSetup-desktop-3.0.exe` | 桌面客户端（入口程序） |
 | `<安装目录>\runtime\` | Node v24 便携运行时 + pnpm |
 | `<安装目录>\harness\` | Harness 源码与依赖（`node_modules`） |
 | `<安装目录>\dsh-home\` | **你的数据目录**：配置、工作区、会话记录、模型设置 |
@@ -157,7 +157,7 @@ llm-pi-ai:
 安装器支持命令行静默安装，适合脚本、CI、批量装机：
 
 ```powershell
-DeepSeekHarnessSetup-desktop.exe D:\DeepSeekHarness
+DeepSeekHarnessSetup-desktop-3.0.exe D:\DeepSeekHarness
 ```
 
 - 自动使用命令行指定的目录，**跳过所有 GUI 交互**；
@@ -188,7 +188,7 @@ DeepSeekHarnessSetup-desktop.exe D:\DeepSeekHarness
 在新机器一键安装完成后，把旧机器的 `<安装目录>\dsh-home` 复制覆盖到新安装目录，即恢复配置、工作区与历史数据。
 
 ### Q6：想要用浏览器打开而不是内嵌窗口？ 
-本安装器为桌面客户端形态。若需浏览器形态，可使用浏览器版安装器（`DeepSeekHarnessSetup.exe`，安装后自动打开 `http://127.0.0.1:3080`）。
+本安装器为桌面客户端形态。若需浏览器形态，可使用浏览器版安装器（`DeepSeekHarnessSetup-desktop-3.0.exe`，安装后自动打开 `http://127.0.0.1:3080`）。
 
 ---
 
