@@ -2,11 +2,102 @@
 <img width="2560" height="1280" alt="deepseek-harness" src="https://github.com/user-attachments/assets/904062ea-a929-4915-a7e9-af5d408d0e39" />
 
 # DeepSeek Harness desktop 一键安装器（桌面版客户端+插件市场+多模态视觉）使用说明
-deepseek harness桌面客户端(含插件市场和多模态视觉) 一键安装包，双击DeepSeekHarnessSetup-desktop.exe就可以一键安装，适合小白！
+deepseek harness桌面客户端(含插件市场和多模态视觉) 一键安装包，双击DeepSeekHarnessSetup-desktop-3.0.exe就可以一键安装，适合小白！
 
-安装包下载地址：https://github.com/yu-wenchao/deepseek-harness-desktop-Install/releases/download/v.30/DeepSeekHarnessSetup-desktop-3.0.exe
+---
+DeepSeek Harness 一键安装器（桌面版）稳定版本下载地址：https://github.com/yu-wenchao/deepseek-harness-desktop-Install/releases/download/v.30/DeepSeekHarnessSetup-desktop-3.0.exe
 
-DeepSeek Harness（DeepSeek 智能体生产环境）支持一键安装：`DeepSeekHarnessSetup-desktop.exe` 会替你完成**下载源码 → 安装全部依赖 → 配置模型网关 → 启动桌面客户端**的全部工作，全程无需命令行，装完即用。
+DeepSeek Harness 一键安装器（桌面版）（最终交付版，修复了插件市场部分插件拦截问题）客户端反向拦截：代理劫持 DSH CLI 调用（不用改插件市场源码）下载地址：https://github.com/yu-wenchao/deepseek-harness-desktop-Install/releases/download/v.30/DeepSeekHarnessSetup-desktop-4.0.exe
+
+---
+
+# Agent Note: 拦截 GitHub Release 压缩包 URL，修复插件市场一键安装
+
+Status: implemented
+
+[English](2026-08-22-plugin-market-github-release-install.md) | 中文
+
+## 问题
+
+第三方插件市场（dshmarket）不由我们维护，也无法修改。用户点击其「确认安装」后，它会执行
+`dsh plugin --profile <p> add
+"<https://github.com/owner/repo/releases/download/tag/pkg-ver.tgz>"`。`dsh` 命令行把这个
+spec 原样转发给 pnpm，而 pnpm 的 URL 分类器匹配到 `github.com/...` 主机后，会走 Git 解析路径
+（`resolveGit` / `resolveRef`），试图解析一个静态 Release 资源并不存在的 tag ref，于是在下载
+发生之前就抛错，导致从 GitHub Release 托管的插件无法一键安装。
+
+## 决策
+
+在 harness CLI 入口（`harness/apps/cli/lib/bin.js`）顶部、commander 解析 `argv` 之前，加入一层
+命令拦截。垫片（`dsh-market-github-release-shim.mjs`）会识别 `plugin ... add` 命令中任何
+GitHub `/releases/download/*.tgz` 参数，把该资源下载一次到 `<root>/market-auto-plugin-cache/`，
+并将 `process.argv` 改写为指向本地文件。随后 pnpm 会像安装普通预构建包一样安装，从而完全绕开
+那条会崩溃的 Git 解析路径。安装器把该垫片作为资源嵌入，并在解压 harness 之后立即把垫片写到
+`bin.js` 旁边，同时在 `bin.js` 顶部注入 `import "./dsh-market-github-release-shim.mjs";`
+（幂等：已存在标记则跳过注入）。由于市场会通过 `process.argv[1]` 直接重新调用宿主 `bin.js`，
+拦截会被自动触发；第三方市场的 UI/源码保持不变。
+
+## 备选方案
+
+**用 PATH 上的 `dsh` 启动器外壳或 spawn 包装器。** 不予采用，因为市场是直接重新调用宿主
+`bin.js`，而不是通过 PATH 上的 `dsh` 查找，因此 PATH 层面的包装器会被绕过。
+
+**修改第三方市场的 UI/源码。** 不予采用，因为我们无权修改第三方市场，且任何改动都无法在
+市场更新后保留。
+
+**把 URL 改写成 `github:owner/repo#tag` 形式的 git spec。** 不予采用，因为这会解析源代码仓库
+而非预构建的 Release 资源，很可能失败或装错构建产物。
+
+**在 harness 仓库里永久修改 `bin.js`。** 不予采用，因为 harness 是单独发布并被重新下载的，
+静态改动会丢失。在安装时注入可以让 harness 源码保持未改，并在每次安装时重新应用修复。
+
+## 影响
+
+现在通过市场从 GitHub Release URL 一键安装可以正常工作。新增了一个基于 `fetch` 的下载逻辑，
+并带本地缓存，重复安装时复用（通过 `.downloading` 临时文件做原子写入）。若下载失败，垫片会打印
+中文错误并以非零状态退出，而不是在 pnpm 深处崩溃。拦截仅作用于引用了 GitHub Release 压缩包的
+`plugin ... add` 命令；其他命令与安装源均原样透传。harness 的 `bin.js` 只在最终用户机器上的
+安装期被修改，源码始终不变。
+
+---
+# 安装器 / 运行时 修复清单（2026-08-22）
+
+本次修复涉及两部分：
+
+- **安装器（本仓库 `release/installer`）**：插件市场 GitHub Release 一键安装失败 —— 已写入 Agent Note。
+- **运行时（gitee harness）**：卸载插件后启动崩溃、重装覆盖丢失用户数据。
+
+---
+
+## 1. 插件卸载后程序启动崩溃（运行时 / gitee harness）
+
+- **现象**：在插件面板卸载某个插件后，再次启动程序直接崩溃，无法进入主界面。
+- **根因**：卸载只删除了插件目录，但插件清单 / 启用配置里仍残留对已删除插件的引用；harness 启动时按清单加载插件失败并抛出，导致整个进程退出。
+- **修复**：启动自愈（boot self-heal）。启动时校验插件清单，对缺失或无效的插件条目做「跳过 + 清理」（写回修正后的清单），而不是让进程崩溃；缺失的运行时依赖自动修复而非终止。
+- **验证**：卸载任意插件后重启，程序正常进入；清单中已无失效引用。
+
+---
+
+## 2. 重装 / 覆盖安装导致用户数据丢失（运行时 / gitee harness）
+
+- **现象**：覆盖安装新版本或重装后，用户的配置、会话、已安装插件数据全部丢失，回到初始状态。
+- **根因**：安装器 / 更新流程直接整体覆盖程序目录，没有保留用户数据目录与配置。
+- **修复**：重装流程在写入前先备份用户数据（配置、会话、插件数据目录），安装完成后再还原；只更新程序文件，保留 `version.json` 与用户目录，做到「升级程序、保留数据」。
+- **验证**：覆盖安装后用户配置与历史会话仍在；全新安装（无旧数据）不受影响。
+
+---
+
+## 3. 插件市场 GitHub Release 一键安装失败（安装器 / 本仓库）✅ 已写 Agent Note
+
+- **Agent Note**：[`.agents/notes/implemented/bug-fix/2026-08-22-plugin-market-github-release-install.md`](../../.agents/notes/implemented/bug-fix/2026-08-22-plugin-market-github-release-install.md)（含中文版 `.zh.md`）
+- **现象**：在第三方插件市场（dshmarket）点击「确认安装」，地址是 `https://github.com/.../releases/download/.../*.tgz` 时安装失败。
+- **根因**：`dsh plugin --profile <p> add "<github release tgz>"` 被原样转发给 pnpm；pnpm 把 `github.com/...` 误判为 Git 仓库，进入 `resolveGit / resolveRef` 去解析并不存在的 tag ref，下载前即抛错。
+- **修复**：安装器注入一层命令拦截垫片（`dsh-market-github-release-shim.mjs`）。它在 harness CLI 入口 `bin.js` 顶部、commander 解析 `argv` 之前运行，识别 `plugin ... add` 中的 GitHub Release `.tgz` 参数，先把资源下载一次到 `<root>/market-auto-plugin-cache/`，再把 `process.argv` 改写为本地文件路径；pnpm 随即像安装普通预构建包一样安装，绕开崩溃的 Git 解析路径。第三方市场 UI / 源码保持不变；垫片随安装器资源嵌入，解压 harness 后幂等注入，重装后自动生效。
+- **验证**：市场一键安装 GitHub Release 插件成功；非 Release 的其它安装源与其它命令均原样透传，不受影响。
+
+---
+
+DeepSeek Harness（DeepSeek 智能体生产环境）支持一键安装：`DeepSeekHarnessSetup-desktop-3.0.exe` 会替你完成**下载源码 → 安装全部依赖 → 配置模型网关 → 启动桌面客户端**的全部工作，全程无需命令行，装完即用。
 
 ---
 
